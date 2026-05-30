@@ -1,16 +1,1067 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sixcrep • Panel Antofagasta (Real)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIXCREP — Valorización Ecosistémica · 2ª Región de Antofagasta</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg0:#060d1a;--bg1:#0c1528;--bg2:#162035;--bg3:#1e2d47;
+  --green:#10b981;--green2:#34d399;--greendim:#064e35;
+  --blue:#3b82f6;--amber:#f59e0b;--red:#ef4444;
+  --t1:#f0f6ff;--t2:#8fa3bf;--t3:#4a6080;
+  --br:#1a2d45;--br2:#243d5a
+}
+html,body{height:100%;overflow:hidden;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg0);color:var(--t1)}
+
+/* ── HEADER ── */
+#hdr{
+  height:52px;background:var(--bg1);border-bottom:1px solid var(--br2);
+  display:flex;align-items:center;padding:0 18px;gap:14px;
+  flex-shrink:0;position:relative;z-index:1100
+}
+.logo{font-size:17px;font-weight:800;color:var(--green);letter-spacing:-.5px}
+.hdr-sep{width:1px;height:20px;background:var(--br2)}
+.hdr-sub{font-size:13px;color:var(--t2);white-space:nowrap}
+.hdr-r{margin-left:auto;display:flex;gap:9px;align-items:center}
+.badge{padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase}
+.b-green{background:var(--greendim);color:var(--green2)}
+.b-blue{background:rgba(59,130,246,.15);color:#93c5fd}
+#hdr-date{font-size:11px;color:var(--t3)}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:calc(100vh - 52px)}
+
+/* ── SIDEBAR ── */
+#sb{
+  width:272px;flex-shrink:0;background:var(--bg1);
+  border-right:1px solid var(--br2);display:flex;
+  flex-direction:column;overflow-y:auto;overflow-x:hidden
+}
+#sb::-webkit-scrollbar{width:4px}
+#sb::-webkit-scrollbar-thumb{background:var(--br2);border-radius:2px}
+.ss{padding:13px 15px;border-bottom:1px solid var(--br)}
+.sl{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:1px;color:var(--t3);margin-bottom:10px}
+
+/* select */
+select.ctrl{
+  width:100%;background:var(--bg2);border:1px solid var(--br2);
+  color:var(--t1);padding:8px 10px;border-radius:7px;
+  font-size:12px;cursor:pointer;outline:none
+}
+select.ctrl:focus{border-color:var(--green)}
+
+/* layer items */
+.lyr{
+  display:flex;align-items:center;gap:9px;padding:7px 8px;
+  border-radius:7px;cursor:pointer;transition:background .15s;margin-bottom:2px
+}
+.lyr:hover{background:var(--bg3)}
+.lyr.on{background:rgba(16,185,129,.08)}
+.ldot{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.lname{font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lval{font-size:10px;color:var(--t3);flex-shrink:0}
+
+/* buttons */
+.btn{
+  display:flex;align-items:center;gap:7px;padding:8px 12px;
+  border-radius:7px;border:1px solid var(--br2);background:var(--bg2);
+  color:var(--t1);font-size:12px;cursor:pointer;transition:all .15s;
+  width:100%;margin-bottom:5px;font-family:inherit
+}
+.btn:hover{background:var(--bg3);border-color:var(--green)}
+.btn.act{background:rgba(16,185,129,.12);border-color:var(--green);color:var(--green)}
+.btn-p{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+.btn-p:hover{background:var(--green2);border-color:var(--green2)}
+.btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+
+/* sliders */
+.yr-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px}
+input[type=range]{width:100%;accent-color:var(--green);cursor:pointer;margin-bottom:10px}
+
+/* footer sb */
+.sbfoot{
+  padding:13px 15px;font-size:10px;color:var(--t3);
+  line-height:1.8;margin-top:auto;border-top:1px solid var(--br)
+}
+
+/* ── MAP WRAPPER ── */
+#mapw{flex:1;position:relative}
+#map{width:100%;height:100%}
+
+/* status */
+#status{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(6,13,26,.88);border:1px solid var(--br2);
+  border-radius:20px;padding:7px 16px;font-size:12px;color:var(--t2);
+  z-index:998;backdrop-filter:blur(8px);pointer-events:none;
+  white-space:nowrap;transition:opacity .3s
+}
+
+/* ── RESULTS PANEL ── */
+#rp{
+  position:absolute;bottom:0;right:0;width:400px;max-height:72vh;
+  background:rgba(12,21,40,.97);border:1px solid var(--br2);
+  border-bottom:none;border-radius:12px 12px 0 0;
+  overflow-y:auto;transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  z-index:999;backdrop-filter:blur(12px)
+}
+#rp::-webkit-scrollbar{width:4px}
+#rp::-webkit-scrollbar-thumb{background:var(--br2)}
+#rp.open{transform:translateY(0)}
+.rph{
+  padding:14px 18px;border-bottom:1px solid var(--br);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:rgba(12,21,40,.97);z-index:1
+}
+.rptitle{font-size:14px;font-weight:700}
+.rpcls{background:none;border:none;color:var(--t3);
+  cursor:pointer;font-size:20px;padding:0 4px;line-height:1}
+.rpcls:hover{color:var(--t1)}
+.rpb{padding:18px}
+
+/* value summary card */
+.vsm{
+  background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(52,211,153,.04));
+  border:1px solid rgba(16,185,129,.25);border-radius:9px;
+  padding:15px;margin-bottom:14px
+}
+.vsm-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--t2);margin-bottom:6px}
+.vsm-main{font-size:26px;font-weight:800;color:var(--green)}
+.vsm-sub{font-size:12px;color:var(--t2);margin-top:2px}
+.vsm-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+/* mini cards */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mc{background:var(--bg2);border-radius:7px;padding:10px}
+.mcl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
+.mcv{font-size:14px;font-weight:700;margin-top:3px}
+
+/* badge comparación */
+.cb{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;
+  border-radius:12px;font-size:11px;font-weight:700}
+.cbp{background:rgba(16,185,129,.15);color:var(--green2)}
+.cbn{background:rgba(239,68,68,.15);color:#fca5a5}
+
+/* chart wrappers */
+.chw{position:relative;height:160px;margin:12px 0}
+.chw.tall{height:185px}
+
+/* eco list */
+.eci{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--br)}
+.eci:last-child{border-bottom:none}
+.ecdot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.ecin{flex:1;min-width:0}
+.ecn{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ecs{font-size:10px;color:var(--t3)}
+.ecv{font-size:11px;font-weight:700;flex-shrink:0}
+
+/* section header */
+.sech{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sectl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3)}
+.tabg{display:flex;gap:4px}
+.tab{padding:4px 10px;border-radius:5px;border:none;background:none;
+  color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit}
+.tab.on{background:var(--bg2);color:var(--t1)}
+
+/* cmp box */
+.cmpb{background:var(--bg2);border-radius:8px;padding:12px;margin-top:10px}
+
+/* loading */
+#loading{
+  position:fixed;inset:0;background:var(--bg0);z-index:2000;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:16px
+}
+.spin{width:38px;height:38px;border:3px solid var(--br2);
+  border-top-color:var(--green);border-radius:50%;
+  animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* leaflet overrides dark */
+.leaflet-draw-toolbar a,.leaflet-bar a{
+  background-color:var(--bg2)!important;border-color:var(--br2)!important;color:var(--t1)!important}
+.leaflet-draw-toolbar a:hover,.leaflet-bar a:hover{background-color:var(--bg3)!important}
+.eco-tt{
+  background:rgba(6,13,26,.95)!important;border:1px solid var(--br2)!important;
+  border-radius:7px!important;color:var(--t1)!important;
+  font-size:11px!important;padding:8px 11px!important;line-height:1.5!important
+}
+</style>
 </head>
-<body class="bg-slate-950 text-slate-200">
-    <!-- Contenido completo del panel Antofagasta -->
-    <h1>Panel Antofagasta - Sixcrep</h1>
-    <!-- ... (versión completa como en el archivo anterior) -->
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <div style="color:var(--t2);font-size:13px">Cargando sistema SIXCREP...</div>
+  <div style="color:var(--t3);font-size:11px">2ª Región de Antofagasta · SEEA-EA</div>
+</div>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="logo">SIXCREP</div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-sub">Valorización Ecosistémica · 2ª Región de Antofagasta</div>
+  <div class="hdr-r">
+    <span id="hdr-date"></span>
+    <span class="badge b-green">SEEA-EA · ONU 2021</span>
+    <span class="badge b-blue">Chile</span>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sb">
+
+    <div class="ss">
+      <div class="sl">Capa Base</div>
+      <select class="ctrl" id="base-sel">
+        <option value="satellite">Satelital (ESRI World Imagery)</option>
+        <option value="hybrid">Híbrido (satélite + etiquetas)</option>
+        <option value="topo">Topográfico (ESRI)</option>
+        <option value="osm">OpenStreetMap</option>
+      </select>
+    </div>
+
+    <div class="ss">
+      <div class="sl">Capas Ecosistémicas</div>
+      <div id="lyrlist"></div>
+    </div>
+
+    <div class="ss">
+      <div class="sl">Marcar Área</div>
+      <button class="btn" id="btn-poly" onclick="startDraw('polygon')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12,2 22,20 2,20"/></svg>
+        Polígono libre
+      </button>
+      <button class="btn" id="btn-rect" onclick="startDraw('rectangle')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+        Rectángulo
+      </button>
+      <button class="btn" id="btn-circ" onclick="startDraw('circle')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+        Círculo radial
+      </button>
+      <button class="btn" onclick="clearAll()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="m19,6-.867,12.142A2,2 0 0 1,16.138,20H7.862a2,2 0 0 1-1.995-1.858L5,6m5,0V4a1,1 0 0 1,1-1h2a1,1 0 0 1,1,1v2"/></svg>
+        Limpiar área
+      </button>
+    </div>
+
+    <div class="ss">
+      <div class="sl">Comparación Histórica</div>
+      <div class="yr-row">
+        <span style="color:var(--t2)">Año línea base:</span>
+        <span id="lbl-by" style="color:var(--blue);font-weight:700">2015</span>
+      </div>
+      <input type="range" id="sl-by" min="2015" max="2024" value="2015"
+             style="accent-color:var(--blue)" oninput="setBaseYear(+this.value)">
+      <div class="yr-row">
+        <span style="color:var(--t2)">Año a comparar:</span>
+        <span id="lbl-cy" style="color:var(--green);font-weight:700">2024</span>
+      </div>
+      <input type="range" id="sl-cy" min="2015" max="2024" value="2024"
+             oninput="setCmpYear(+this.value)">
+    </div>
+
+    <div class="ss">
+      <div class="sl">Exportar</div>
+      <button class="btn btn-p" id="btn-rpt" onclick="exportReport()" disabled>
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        Generar Informe PDF
+      </button>
+      <button class="btn" id="btn-png" onclick="exportPNG()" disabled>
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+        Guardar imagen PNG
+      </button>
+      <button class="btn" id="btn-csv" onclick="exportCSV()" disabled>
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Exportar CSV
+      </button>
+    </div>
+
+    <div class="sbfoot">
+      <div>Metodología: SEEA Ecosystem Accounting (ONU 2021)</div>
+      <div>Datos: CONAF · MMA Chile · GBIF · OSM</div>
+      <div>Valores USD 2020 constante · TC ~$950 CLP/USD</div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="mapw">
+    <div id="map"></div>
+    <div id="status">Dibuja un área sobre el mapa para valorizar el ecosistema</div>
+
+    <!-- RESULTS PANEL -->
+    <div id="rp">
+      <div class="rph">
+        <div class="rptitle">Valorización Ecosistémica</div>
+        <button class="rpcls" onclick="closePanel()">×</button>
+      </div>
+      <div class="rpb" id="rpb"></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- CDN -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  SIXCREP — Motor de Valorización Ecosistémica SEEA-EA
+//  2ª Región de Antofagasta, Chile
+//  Valores USD/ha/año basados en Costanza et al. 2014 adaptado
+//  para ecosistemas áridos e hiperárdos de Chile
+// ═══════════════════════════════════════════════════════════════════
+
+const USD_CLP = 950;
+const CENTER  = [-23.1, -68.5];
+const ZOOM    = 7;
+
+// ── Tabla de ecosistemas: servicios en USD/ha/año ──────────────────
+const ECO = {
+  desierto: {
+    name:'Desierto Absoluto', color:'#c9a84c', fillOp:.30,
+    svc:{prov:2,reg:12,cult:18,mant:8}, trend:-0.005,
+    desc:'Hiperárido sin vegetación permanente'
+  },
+  matorral: {
+    name:'Matorral Desértico', color:'#8b7240', fillOp:.30,
+    svc:{prov:8,reg:35,cult:42,mant:38}, trend:-0.008,
+    desc:'Arbustos dispersos en precordillera'
+  },
+  loma: {
+    name:'Loma Costera', color:'#4a7c50', fillOp:.36,
+    svc:{prov:65,reg:220,cult:180,mant:110}, trend:-0.015,
+    desc:'Ecosistema de neblina en laderas costeras'
+  },
+  pajonal: {
+    name:'Pajonal Altiplánico', color:'#9c8a48', fillOp:.30,
+    svc:{prov:85,reg:140,cult:65,mant:95}, trend:-0.010,
+    desc:'Pastizales andinos sobre 3 500 msnm'
+  },
+  bofedal: {
+    name:'Bofedal Altoandino', color:'#22845a', fillOp:.46,
+    svc:{prov:280,reg:3200,cult:450,mant:1400}, trend:-0.020,
+    desc:'Humedales de alta montaña — reguladores hídricos críticos'
+  },
+  salar: {
+    name:'Salar / Laguna Andina', color:'#7db8d8', fillOp:.34,
+    svc:{prov:25,reg:210,cult:280,mant:165}, trend:-0.025,
+    desc:'Salares y lagunas andinas, hábitat flamencos'
+  },
+  oasis: {
+    name:'Oasis / Quebrada', color:'#2e6e36', fillOp:.44,
+    svc:{prov:420,reg:850,cult:380,mant:290}, trend:+0.002,
+    desc:'Oasis ribereños con vegetación permanente'
+  },
+  costero: {
+    name:'Zona Costera Marina', color:'#1a6aa8', fillOp:.28,
+    svc:{prov:1650,reg:3400,cult:820,mant:1900}, trend:-0.008,
+    desc:'Ecosistema marino costero — pesca y biodiversidad'
+  },
+  minera: {
+    name:'Zona Minera Activa', color:'#8b3a3a', fillOp:.36,
+    svc:{prov:-180,reg:-850,cult:-60,mant:-320}, trend:-0.030,
+    desc:'Intervención minera que degrada servicios ecosistémicos'
+  }
+};
+
+// ── Índices de degradación/recuperación 2015-2024 (2015=100) ──────
+const HIST = {
+  yrs:[2015,2016,2017,2018,2019,2020,2021,2022,2023,2024],
+  idx:{
+    desierto:[100,99.5,99.1,98.7,98.4,98.0,97.7,97.4,97.1,96.8],
+    matorral:[100,99.2,98.5,97.8,97.1,96.4,95.6,94.9,94.2,93.5],
+    loma:    [100,98.5,97.0,95.5,93.5,91.5,89.5,87.5,85.5,83.5],
+    pajonal: [100,99.0,98.0,97.0,96.0,95.0,93.8,92.5,91.2,90.0],
+    bofedal: [100,98.0,96.0,93.5,91.0,88.5,85.5,82.5,79.5,76.5],
+    salar:   [100,97.5,95.0,92.0,89.0,85.8,82.5,79.0,75.5,72.0],
+    oasis:   [100,100.2,100.4,100.6,100.8,101.0,101.0,100.8,100.6,100.4],
+    costero: [100,99.2,98.4,97.5,96.6,95.7,94.8,93.8,92.8,91.8],
+    minera:  [100,97.0,94.0,91.0,87.5,84.0,80.5,77.0,73.5,70.0]
+  }
+};
+
+// ── Polígonos GeoJSON aproximados (CONAF/MMA) ─────────────────────
+const GEO = {type:'FeatureCollection',features:[
+  {type:'Feature',properties:{t:'costero',n:'Zona Costera Marina'},geometry:{type:'Polygon',coordinates:[[
+    [-71.0,-18.0],[-70.35,-18.0],[-70.45,-19.5],[-70.55,-21.0],
+    [-70.65,-22.5],[-70.70,-24.0],[-70.80,-26.5],
+    [-71.2,-26.5],[-71.2,-18.0],[-71.0,-18.0]
+  ]]}},
+  {type:'Feature',properties:{t:'desierto',n:'Desierto Costero Norte'},geometry:{type:'Polygon',coordinates:[[
+    [-70.35,-18.0],[-69.6,-18.0],[-69.4,-19.0],[-69.55,-20.0],
+    [-69.75,-21.0],[-70.0,-22.0],[-70.20,-23.0],[-70.40,-24.0],
+    [-70.55,-26.0],[-70.80,-26.5],[-70.70,-24.0],[-70.65,-22.5],
+    [-70.55,-21.0],[-70.45,-19.5],[-70.35,-18.0]
+  ]]}},
+  {type:'Feature',properties:{t:'desierto',n:'Desierto de Atacama Interior'},geometry:{type:'Polygon',coordinates:[[
+    [-69.6,-18.0],[-68.6,-18.0],[-68.35,-19.0],[-68.20,-20.0],
+    [-68.45,-21.5],[-68.55,-22.5],[-68.80,-24.0],[-69.0,-25.0],
+    [-69.5,-26.0],[-70.55,-26.0],[-70.40,-24.0],[-70.20,-23.0],
+    [-70.0,-22.0],[-69.75,-21.0],[-69.55,-20.0],[-69.4,-19.0],[-69.6,-18.0]
+  ]]}},
+  {type:'Feature',properties:{t:'pajonal',n:'Altiplano / Puna'},geometry:{type:'Polygon',coordinates:[[
+    [-68.6,-18.0],[-67.2,-18.0],[-67.1,-19.5],[-67.4,-21.0],
+    [-67.7,-22.0],[-68.2,-22.8],[-68.45,-21.5],[-68.20,-20.0],
+    [-68.35,-19.0],[-68.6,-18.0]
+  ]]}},
+  {type:'Feature',properties:{t:'bofedal',n:'Bofedales Norte (Soncor)'},geometry:{type:'Polygon',coordinates:[[
+    [-67.95,-18.3],[-67.55,-18.3],[-67.45,-18.8],[-67.55,-19.3],
+    [-67.95,-19.3],[-68.1,-18.85],[-67.95,-18.3]
+  ]]}},
+  {type:'Feature',properties:{t:'bofedal',n:'Bofedal Atacama Alto'},geometry:{type:'Polygon',coordinates:[[
+    [-67.75,-22.1],[-67.45,-22.1],[-67.35,-22.5],
+    [-67.45,-22.95],[-67.75,-22.95],[-67.95,-22.5],[-67.75,-22.1]
+  ]]}},
+  {type:'Feature',properties:{t:'salar',n:'Salar de Atacama'},geometry:{type:'Polygon',coordinates:[[
+    [-68.50,-22.85],[-68.05,-22.85],[-67.88,-23.2],
+    [-67.88,-23.85],[-68.08,-24.25],[-68.50,-24.25],
+    [-68.68,-23.8],[-68.68,-23.2],[-68.50,-22.85]
+  ]]}},
+  {type:'Feature',properties:{t:'salar',n:'Lagunas Miscanti-Miñiques'},geometry:{type:'Polygon',coordinates:[[
+    [-67.78,-23.65],[-67.62,-23.65],[-67.55,-23.82],
+    [-67.62,-24.0],[-67.78,-24.0],[-67.90,-23.82],[-67.78,-23.65]
+  ]]}},
+  {type:'Feature',properties:{t:'loma',n:'Lomas de Mejillones'},geometry:{type:'Polygon',coordinates:[[
+    [-70.30,-23.0],[-70.10,-23.0],[-70.02,-23.3],
+    [-70.06,-23.6],[-70.26,-23.6],[-70.38,-23.3],[-70.30,-23.0]
+  ]]}},
+  {type:'Feature',properties:{t:'loma',n:'Lomas Costeras Sur'},geometry:{type:'Polygon',coordinates:[[
+    [-70.26,-25.0],[-70.06,-25.0],[-69.97,-25.3],
+    [-70.01,-25.6],[-70.22,-25.6],[-70.36,-25.3],[-70.26,-25.0]
+  ]]}},
+  {type:'Feature',properties:{t:'matorral',n:'Matorral Precordillera'},geometry:{type:'Polygon',coordinates:[[
+    [-68.80,-21.5],[-68.30,-22.0],[-68.0,-22.8],
+    [-68.3,-22.8],[-68.80,-22.0],[-69.0,-21.5],[-68.80,-21.5]
+  ]]}},
+  {type:'Feature',properties:{t:'matorral',n:'Matorral Transición Sur'},geometry:{type:'Polygon',coordinates:[[
+    [-68.80,-24.5],[-68.0,-24.5],[-67.75,-25.0],
+    [-67.95,-25.8],[-68.80,-25.8],[-69.20,-25.2],[-68.80,-24.5]
+  ]]}},
+  {type:'Feature',properties:{t:'oasis',n:'Oasis San Pedro de Atacama'},geometry:{type:'Polygon',coordinates:[[
+    [-68.10,-22.85],[-67.90,-22.85],[-67.82,-22.95],
+    [-67.88,-23.12],[-68.08,-23.12],[-68.17,-23.0],[-68.10,-22.85]
+  ]]}},
+  {type:'Feature',properties:{t:'oasis',n:'Oasis Calama — Río Loa'},geometry:{type:'Polygon',coordinates:[[
+    [-68.95,-22.2],[-68.52,-22.2],[-68.42,-22.42],
+    [-68.52,-22.65],[-68.95,-22.65],[-69.08,-22.42],[-68.95,-22.2]
+  ]]}},
+  {type:'Feature',properties:{t:'minera',n:'Complejo Minero Chuquicamata'},geometry:{type:'Polygon',coordinates:[[
+    [-69.0,-22.1],[-68.72,-22.1],[-68.62,-22.3],
+    [-68.72,-22.55],[-69.0,-22.55],[-69.15,-22.3],[-69.0,-22.1]
+  ]]}},
+  {type:'Feature',properties:{t:'minera',n:'Minera Escondida / BHP'},geometry:{type:'Polygon',coordinates:[[
+    [-69.02,-24.0],[-68.67,-24.0],[-68.58,-24.22],
+    [-68.67,-24.46],[-69.02,-24.46],[-69.18,-24.24],[-69.02,-24.0]
+  ]]}}
+]};
+
+const CITIES=[
+  {n:'Antofagasta', lat:-23.65,lng:-70.40,info:'Capital Regional'},
+  {n:'Calama',      lat:-22.46,lng:-68.93,info:'Centro minero'},
+  {n:'San Pedro',   lat:-22.91,lng:-68.20,info:'Oasis/Turismo'},
+  {n:'Tocopilla',   lat:-22.09,lng:-70.20,info:'Puerto'},
+  {n:'Mejillones',  lat:-23.10,lng:-70.45,info:'Puerto industrial'},
+  {n:'Taltal',      lat:-25.40,lng:-70.48,info:'Puerto sur'}
+];
+
+// ═══════════════════════════════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════════════════════════════
+let map, drawn, dctrl;
+let ecoGroups={}, ecoOn={};
+let activeH=null;
+let result=null;
+let baseYear=2015, cmpYear=2024;
+let charts={};
+let activeTab='bar';
+
+// ═══════════════════════════════════════════════════════════════════
+//  TILES
+// ═══════════════════════════════════════════════════════════════════
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+const TILES = {
+  satellite: L.tileLayer(`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,{maxZoom:19,attribution:'© Esri'}),
+  hybrid: L.layerGroup([
+    L.tileLayer(`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,{maxZoom:19}),
+    L.tileLayer(`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`,{maxZoom:19})
+  ]),
+  topo: L.tileLayer(`${ESRI}/World_Topo_Map/MapServer/tile/{z}/{y}/{x}`,{maxZoom:19,attribution:'© Esri'}),
+  osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'})
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ═══════════════════════════════════════════════════════════════════
+function initMap(){
+  map=L.map('map',{center:CENTER,zoom:ZOOM,zoomControl:false,layers:[TILES.satellite]});
+  L.control.zoom({position:'topright'}).addTo(map);
+  L.control.scale({imperial:false,position:'bottomright'}).addTo(map);
+
+  drawn=new L.FeatureGroup();
+  map.addLayer(drawn);
+
+  const shpOpt={color:'#10b981',fillColor:'#10b981',fillOpacity:.15,weight:2};
+  dctrl=new L.Control.Draw({
+    position:'topright',
+    draw:{
+      polygon:{shapeOptions:shpOpt,allowIntersection:false,showArea:true},
+      rectangle:{shapeOptions:shpOpt},
+      circle:{shapeOptions:shpOpt},
+      polyline:false,circlemarker:false,marker:false
+    },
+    edit:{featureGroup:drawn}
+  });
+  map.addControl(dctrl);
+
+  map.on(L.Draw.Event.CREATED,e=>{
+    drawn.clearLayers();
+    drawn.addLayer(e.layer);
+    analyze(e.layer,e.layerType);
+    stopDraw();
+  });
+  map.on(L.Draw.Event.EDITED,e=>{
+    e.layers.eachLayer(l=>analyze(l,'polygon'));
+  });
+
+  initEco();
+  initToggles();
+  addCities();
+
+  document.getElementById('base-sel').addEventListener('change',function(){
+    Object.values(TILES).forEach(t=>{ if(map.hasLayer(t)) map.removeLayer(t); });
+    map.addLayer(TILES[this.value]);
+  });
+
+  document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('es-CL',
+    {year:'numeric',month:'long',day:'numeric'});
+
+  setTimeout(()=>{ document.getElementById('loading').style.display='none'; },800);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CAPAS ECOSISTÉMICAS
+// ═══════════════════════════════════════════════════════════════════
+function ecoTotal(t){
+  const s=ECO[t].svc;
+  return Math.round(s.prov+s.reg+s.cult+s.mant);
+}
+
+function initEco(){
+  GEO.features.forEach(f=>{
+    const t=f.properties.t, eco=ECO[t];
+    if(!eco) return;
+    const tot=ecoTotal(t);
+    const lyr=L.geoJSON(f,{
+      style:{color:eco.color,fillColor:eco.color,fillOpacity:eco.fillOp,weight:1,opacity:.65}
+    });
+    lyr.bindTooltip(`
+      <div style="font-weight:700;margin-bottom:3px">${f.properties.n}</div>
+      <div style="color:#8fa3bf;font-size:10px;margin-bottom:4px">${eco.desc}</div>
+      <div style="color:#10b981;font-weight:700">$${fmt(tot)} USD/ha·año</div>
+      <div style="color:#4a6080;font-size:10px">Tendencia: ${eco.trend>0?'▲':'▼'} ${Math.abs(eco.trend*100).toFixed(1)}%/año</div>
+    `,{className:'eco-tt',sticky:true});
+    if(!ecoGroups[t]){ ecoGroups[t]=L.layerGroup(); ecoOn[t]=true; }
+    ecoGroups[t].addLayer(lyr);
+  });
+  Object.values(ecoGroups).forEach(g=>map.addLayer(g));
+}
+
+function initToggles(){
+  const c=document.getElementById('lyrlist');
+  Object.entries(ECO).forEach(([t,eco])=>{
+    if(!ecoGroups[t]) return;
+    const tot=ecoTotal(t);
+    const d=document.createElement('div');
+    d.className='lyr on'; d.id=`lt-${t}`;
+    d.innerHTML=`<div class="ldot" style="background:${eco.color}"></div>
+      <div class="lname">${eco.name}</div>
+      <div class="lval" style="color:${tot<0?'#fca5a5':'var(--t3)'}">
+        ${tot<0?'-':''}$${Math.abs(tot)}</div>`;
+    d.onclick=()=>toggleLyr(t,d);
+    c.appendChild(d);
+  });
+}
+
+function toggleLyr(t,el){
+  ecoOn[t]=!ecoOn[t];
+  ecoOn[t]?map.addLayer(ecoGroups[t]):map.removeLayer(ecoGroups[t]);
+  el.classList.toggle('on',ecoOn[t]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CIUDADES
+// ═══════════════════════════════════════════════════════════════════
+function addCities(){
+  CITIES.forEach(c=>{
+    const icon=L.divIcon({
+      className:'',
+      html:`<div style="background:rgba(6,13,26,.85);border:1px solid #243d5a;color:#8fa3bf;font-size:10px;padding:2px 7px;border-radius:10px;white-space:nowrap;backdrop-filter:blur(4px)">${c.n}</div>`,
+      iconAnchor:[0,0]
+    });
+    L.marker([c.lat,c.lng],{icon})
+      .bindTooltip(`<b>${c.n}</b><br><span style="color:#8fa3bf">${c.info}</span>`,{className:'eco-tt'})
+      .addTo(map);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HERRAMIENTAS DE DIBUJO
+// ═══════════════════════════════════════════════════════════════════
+function startDraw(type){
+  if(activeH){ activeH.disable(); activeH=null; }
+  ['poly','rect','circ'].forEach(id=>document.getElementById(`btn-${id}`).classList.remove('act'));
+
+  let h;
+  const o=dctrl.options.draw;
+  if(type==='polygon')   h=new L.Draw.Polygon(map,o.polygon);
+  else if(type==='rectangle') h=new L.Draw.Rectangle(map,o.rectangle);
+  else                   h=new L.Draw.Circle(map,o.circle);
+  h.enable(); activeH=h;
+
+  const m={polygon:'poly',rectangle:'rect',circle:'circ'};
+  document.getElementById(`btn-${m[type]}`).classList.add('act');
+  setStatus(type==='polygon'?'Haz clic para vértices — doble clic para cerrar':
+            type==='rectangle'?'Arrastra para definir el rectángulo':'Arrastra para definir el radio');
+}
+
+function stopDraw(){
+  if(activeH){ activeH.disable(); activeH=null; }
+  ['poly','rect','circ'].forEach(id=>document.getElementById(`btn-${id}`).classList.remove('act'));
+}
+
+function clearAll(){
+  drawn.clearLayers(); result=null;
+  closePanel();
+  setStatus('Dibuja un área sobre el mapa para valorizar el ecosistema');
+  enableExports(false);
+}
+
+function setStatus(m){ document.getElementById('status').textContent=m; }
+
+// ═══════════════════════════════════════════════════════════════════
+//  ANÁLISIS Y VALORIZACIÓN (SEEA-EA)
+// ═══════════════════════════════════════════════════════════════════
+function analyze(layer, ltype){
+  setStatus('Analizando intersecciones ecosistémicas...');
+
+  let feat, areaSqm;
+  if(ltype==='circle'){
+    const c=layer.getLatLng(), r=layer.getRadius();
+    areaSqm=Math.PI*r*r;
+    feat=turf.circle([c.lng,c.lat],r/1000,{steps:64,units:'kilometers'});
+  } else {
+    feat=layer.toGeoJSON();
+    areaSqm=turf.area(feat);
+  }
+
+  const areaHa=areaSqm/10000;
+  const areaKm2=areaSqm/1e6;
+
+  // Intersección con polígonos ecosistémicos
+  const ints=[];
+  GEO.features.forEach(ef=>{
+    try{
+      const ix=turf.intersect(feat,ef);
+      if(!ix) return;
+      const iHa=turf.area(ix)/10000;
+      const t=ef.properties.t;
+      const found=ints.find(x=>x.t===t);
+      if(found){ found.ha+=iHa; found.pct+=iHa/areaHa*100; }
+      else {
+        const eco=ECO[t];
+        ints.push({t,name:eco.name,color:eco.color,ha:iHa,
+          pct:iHa/areaHa*100,svc:eco.svc,vha:ecoTotal(t),trend:eco.trend});
+      }
+    }catch(e){}
+  });
+
+  // Rellenar con desierto si queda área sin cubrir
+  const pctCov=ints.reduce((s,i)=>s+i.pct,0);
+  if(pctCov<99){
+    const remHa=areaHa*(100-pctCov)/100;
+    const t='desierto', eco=ECO[t];
+    const f=ints.find(x=>x.t===t);
+    if(f){ f.ha+=remHa; f.pct+=(100-pctCov); }
+    else ints.push({t,name:eco.name,color:eco.color,ha:remHa,
+      pct:(100-pctCov),svc:eco.svc,vha:ecoTotal(t),trend:eco.trend});
+  }
+
+  ints.sort((a,b)=>b.ha-a.ha);
+
+  // Calcular breakdown de servicios ponderado por área
+  const bd={prov:0,reg:0,cult:0,mant:0};
+  let totalUSD=0;
+  ints.forEach(i=>{
+    ['prov','reg','cult','mant'].forEach(s=>{
+      const v=i.svc[s]*i.ha; bd[s]+=v; totalUSD+=v;
+    });
+  });
+
+  // Serie histórica
+  const hist=HIST.yrs.map((yr,yi)=>{
+    let v=0;
+    ints.forEach(i=>{
+      const idx=HIST.idx[i.t];
+      if(idx) v+=i.vha*(idx[yi]/100)*i.ha;
+    });
+    return {yr,v:Math.round(v)};
+  });
+
+  result={areaHa,areaKm2,ints,bd,totalUSD,hist};
+  renderPanel(result);
+  enableExports(true);
+  setStatus(`Área: ${fmt(Math.round(areaHa))} ha · ${fmt(Math.round(areaKm2*10)/10)} km² · ${ints.length} ecosistemas`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PANEL DE RESULTADOS
+// ═══════════════════════════════════════════════════════════════════
+function renderPanel(r){
+  const bi=HIST.yrs.indexOf(baseYear), ci=HIST.yrs.indexOf(cmpYear);
+  const bv=r.hist[bi]?.v||r.totalUSD;
+  const cv=r.hist[ci]?.v||r.totalUSD;
+  const chg=((cv-bv)/Math.abs(bv||1)*100);
+  const pos=chg>=0;
+
+  document.getElementById('rpb').innerHTML=`
+    <div class="g3">
+      <div class="mc"><div class="mcl">Hectáreas</div><div class="mcv">${fmt(Math.round(r.areaHa))}</div></div>
+      <div class="mc"><div class="mcl">km²</div><div class="mcv">${fmt(Math.round(r.areaKm2*10)/10)}</div></div>
+      <div class="mc"><div class="mcl">Ecosistemas</div><div class="mcv">${r.ints.length}</div></div>
+    </div>
+
+    <div class="vsm">
+      <div class="vsm-lbl">Valor Ecosistémico Total · Año ${cmpYear}</div>
+      <div class="vsm-main">$ ${fmt(Math.round(cv))}</div>
+      <div class="vsm-sub">USD / año &nbsp;·&nbsp; ${fmt(Math.round(r.areaHa))} ha</div>
+      <div class="vsm-row">
+        <span style="font-size:12px;color:var(--t2)">CLP: <b style="color:var(--t1)">$${fmt(Math.round(cv*USD_CLP/1e6))}M</b></span>
+        <span style="font-size:12px;color:var(--t2)">/ha: <b style="color:var(--t1)">$${fmt(Math.round(cv/Math.max(r.areaHa,1)))}</b></span>
+        <span class="cb ${pos?'cbp':'cbn'}">${pos?'▲':'▼'} ${Math.abs(chg).toFixed(1)}% vs ${baseYear}</span>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="sech">
+        <div class="sectl">Servicios Ecosistémicos</div>
+        <div class="tabg">
+          <button class="tab ${activeTab==='bar'?'on':''}" id="tab-bar" onclick="switchTab('bar')">Barras</button>
+          <button class="tab ${activeTab==='pie'?'on':''}" id="tab-pie" onclick="switchTab('pie')">Anillo</button>
+        </div>
+      </div>
+      <div class="chw"><canvas id="ch-svc"></canvas></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="sectl" style="margin-bottom:10px">Composición del Área</div>
+      ${r.ints.map(i=>`
+        <div class="eci">
+          <div class="ecdot" style="background:${i.color}"></div>
+          <div class="ecin">
+            <div class="ecn">${i.name}</div>
+            <div class="ecs">${fmt(Math.round(i.ha))} ha · ${i.pct.toFixed(1)}%</div>
+          </div>
+          <div class="ecv" style="color:${i.vha<0?'#fca5a5':'var(--green)'}">
+            ${i.vha<0?'-':''}$${fmt(Math.abs(i.vha))}/ha
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div>
+      <div class="sectl" style="margin-bottom:8px">Serie Histórica ${baseYear}–${cmpYear}</div>
+      <div class="chw tall"><canvas id="ch-hist"></canvas></div>
+      <div class="cmpb">
+        <div class="g2">
+          <div><div style="font-size:10px;color:var(--t3)">Valor ${baseYear}</div>
+               <div style="font-size:14px;font-weight:700;color:var(--blue)">$${fmt(Math.round(bv))}</div></div>
+          <div><div style="font-size:10px;color:var(--t3)">Valor ${cmpYear}</div>
+               <div style="font-size:14px;font-weight:700;color:${pos?'var(--green)':'#f87171'}">$${fmt(Math.round(cv))}</div></div>
+          <div><div style="font-size:10px;color:var(--t3)">Δ USD/año</div>
+               <div style="font-size:14px;font-weight:700;color:${pos?'var(--green)':'#f87171'}">${pos?'+':''}$${fmt(Math.round(cv-bv))}</div></div>
+          <div><div style="font-size:10px;color:var(--t3)">Δ %</div>
+               <div style="font-size:14px;font-weight:700;color:${pos?'var(--green)':'#f87171'}">${pos?'+':''}${chg.toFixed(2)}%</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="height:16px"></div>
+  `;
+
+  document.getElementById('rp').classList.add('open');
+  setTimeout(()=>{ renderSvcChart(r,cv); renderHistChart(r); },60);
+}
+
+function switchTab(t){
+  activeTab=t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
+  document.getElementById(`tab-${t}`).classList.add('on');
+  if(charts.svc) charts.svc.destroy();
+  const ci=HIST.yrs.indexOf(cmpYear);
+  const cv=result.hist[ci]?.v||result.totalUSD;
+  renderSvcChart(result,cv);
+}
+
+function renderSvcChart(r,cv){
+  const ctx=document.getElementById('ch-svc')?.getContext('2d');
+  if(!ctx) return;
+  if(charts.svc) charts.svc.destroy();
+
+  const factor=r.totalUSD? cv/r.totalUSD : 1;
+  const labels=['Aprovisionamiento','Regulación','Cultural','Mantenimiento'];
+  const data=[r.bd.prov,r.bd.reg,r.bd.cult,r.bd.mant].map(v=>Math.round(v*factor));
+  const colors=['#3b82f6','#10b981','#f59e0b','#8b5cf6'];
+
+  if(activeTab==='bar'){
+    charts.svc=new Chart(ctx,{type:'bar',
+      data:{labels,datasets:[{data,backgroundColor:colors.map(c=>c+'cc'),
+        borderColor:colors,borderWidth:1,borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8fa3bf',font:{size:10}}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},
+             ticks:{color:'#8fa3bf',font:{size:10},callback:v=>'$'+fmt(Math.round(v/1000))+'k'}}
+        }}});
+  } else {
+    charts.svc=new Chart(ctx,{type:'doughnut',
+      data:{labels,datasets:[{data:data.map(Math.abs),
+        backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'right',labels:{color:'#8fa3bf',font:{size:10},boxWidth:12}}}}});
+  }
+}
+
+function renderHistChart(r){
+  const ctx=document.getElementById('ch-hist')?.getContext('2d');
+  if(!ctx) return;
+  if(charts.hist) charts.hist.destroy();
+
+  const bi=HIST.yrs.indexOf(baseYear), ci=HIST.yrs.indexOf(cmpYear);
+  charts.hist=new Chart(ctx,{type:'line',
+    data:{labels:r.hist.map(h=>h.yr),
+      datasets:[{
+        label:'Valor USD/año',data:r.hist.map(h=>h.v),
+        borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',
+        borderWidth:2,fill:true,tension:.4,
+        pointRadius:r.hist.map((_,i)=>(i===bi||i===ci)?6:2),
+        pointBackgroundColor:r.hist.map((_,i)=>i===bi?'#3b82f6':i===ci?'#10b981':'#162035'),
+        pointBorderColor:r.hist.map((_,i)=>i===bi?'#3b82f6':i===ci?'#10b981':'#243d5a')
+      }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+fmt(Math.round(c.raw))+' USD/año'}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8fa3bf',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},
+           ticks:{color:'#8fa3bf',font:{size:10},callback:v=>'$'+fmt(Math.round(v/1000))+'k'}}
+      }}});
+}
+
+function closePanel(){ document.getElementById('rp').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONTROLES DE AÑO
+// ═══════════════════════════════════════════════════════════════════
+function setBaseYear(y){
+  baseYear=y;
+  document.getElementById('lbl-by').textContent=y;
+  if(result) renderPanel(result);
+}
+function setCmpYear(y){
+  cmpYear=y;
+  document.getElementById('lbl-cy').textContent=y;
+  if(result) renderPanel(result);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORTAR
+// ═══════════════════════════════════════════════════════════════════
+function enableExports(on){
+  ['btn-rpt','btn-png','btn-csv'].forEach(id=>{
+    document.getElementById(id).disabled=!on;
+  });
+}
+
+function exportCSV(){
+  if(!result) return;
+  const bv=result.hist[HIST.yrs.indexOf(baseYear)].v;
+  const rows=[
+    ['Año','Valor USD/año','Valor CLP (miles)','Variacion % vs '+baseYear],
+    ...result.hist.map(h=>[h.yr,Math.round(h.v),Math.round(h.v*USD_CLP/1000),
+      ((h.v-bv)/bv*100).toFixed(2)])
+  ];
+  dlBlob(rows.map(r=>r.join(',')).join('\n'),'text/csv',
+    `sixcrep_ecosistemas_${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+function exportPNG(){
+  if(!result) return;
+  setStatus('Capturando imagen...');
+  const el=document.getElementById('mapw');
+  const w=el.offsetWidth, h=el.offsetHeight;
+  const bounds=drawn.getBounds();
+  if(!bounds.isValid()){ setStatus('Sin área dibujada'); return; }
+
+  const url=`https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}&bboxSR=4326&size=${Math.min(w,1200)},${Math.min(h,900)}&imageSR=4326&format=png&f=image`;
+  const img=new Image(); img.crossOrigin='anonymous';
+
+  const finish=(dataUrl)=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,w,h);
+    // watermark
+    ctx.fillStyle='rgba(6,13,26,.72)';
+    ctx.fillRect(0,0,w,42);
+    ctx.fillStyle='#10b981'; ctx.font='bold 14px sans-serif';
+    ctx.fillText('SIXCREP — Valorización Ecosistémica · 2ª Región de Antofagasta',12,26);
+    ctx.fillStyle='#8fa3bf'; ctx.font='11px sans-serif';
+    ctx.fillText(new Date().toLocaleDateString('es-CL'),w-110,26);
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png').replace('image/png','image/octet-stream');
+    a.download=`sixcrep_mapa_${new Date().toISOString().slice(0,10)}.png`;
+    a.click();
+    setStatus('Imagen guardada');
+  };
+
+  img.onload=()=>finish(img);
+  img.onerror=()=>{
+    // fallback sin tiles
+    const canvas=document.createElement('canvas');
+    canvas.width=600; canvas.height=400;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#0c1528'; ctx.fillRect(0,0,600,400);
+    ctx.fillStyle='#10b981'; ctx.font='bold 16px sans-serif';
+    ctx.fillText('SIXCREP — Mapa sin tiles (CORS)',20,40);
+    finish(null);
+  };
+  img.src=url;
+}
+
+function exportReport(){
+  if(!result) return;
+  const r=result;
+  const bi=HIST.yrs.indexOf(baseYear), ci=HIST.yrs.indexOf(cmpYear);
+  const bv=r.hist[bi].v, cv=r.hist[ci].v;
+  const chg=((cv-bv)/Math.abs(bv||1)*100), pos=chg>=0;
+
+  const svcNames={prov:'Aprovisionamiento',reg:'Regulación',cult:'Cultural',mant:'Mantenimiento'};
+  const svcRows=Object.entries(r.bd).map(([k,v])=>{
+    const tot=Math.abs(r.bd.prov)+Math.abs(r.bd.reg)+Math.abs(r.bd.cult)+Math.abs(r.bd.mant)||1;
+    return `<tr><td>${svcNames[k]}</td><td>$${fmt(Math.round(v))}</td>
+      <td>${(Math.abs(v)/tot*100).toFixed(1)}%</td>
+      <td>$${fmt(Math.round(v/Math.max(r.areaHa,1)))}</td></tr>`;
+  }).join('');
+
+  const ecoRows=r.ints.map(i=>
+    `<tr><td>${i.name}</td><td>${fmt(Math.round(i.ha))}</td>
+     <td>${i.pct.toFixed(1)}%</td>
+     <td>${i.vha<0?'-':''}$${fmt(Math.abs(i.vha))}</td>
+     <td>$${fmt(Math.round(i.vha*i.ha))}</td></tr>`).join('');
+
+  const histRows=r.hist.map(h=>{
+    const c=((h.v-bv)/Math.abs(bv||1)*100);
+    return `<tr><td>${h.yr}</td><td>$${fmt(Math.round(h.v))}</td>
+      <td>$${fmt(Math.round(h.v*USD_CLP/1e6))}M</td>
+      <td class="${c>=0?'pos':'neg'}">${c>=0?'+':''}${c.toFixed(2)}%</td></tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>SIXCREP — Informe Valorización Ecosistémica</title>
+<style>
+  body{font-family:Arial,sans-serif;max-width:860px;margin:0 auto;padding:40px;color:#111}
+  h1{color:#065f46;border-bottom:3px solid #10b981;padding-bottom:10px}
+  h2{color:#065f46;margin-top:28px;font-size:16px}
+  .meta{color:#6b7280;font-size:13px;margin-bottom:24px;line-height:1.9}
+  .vbox{background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:18px;margin:18px 0}
+  .main{font-size:30px;font-weight:800;color:#065f46}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th{background:#064e35;color:#fff;padding:9px 10px;text-align:left}
+  td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
+  tr:nth-child(even) td{background:#f9fafb}
+  .pos{color:#059669;font-weight:700}.neg{color:#dc2626;font-weight:700}
+  .foot{margin-top:36px;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px}
+  @media print{.noprint{display:none}}
+</style></head><body>
+<h1>SIXCREP — Informe de Valorización Ecosistémica</h1>
+<div class="meta">
+  <b>Región:</b> 2ª Región de Antofagasta, Chile &nbsp;|&nbsp;
+  <b>Metodología:</b> SEEA Ecosystem Accounting (ONU 2021)<br>
+  <b>Fecha:</b> ${new Date().toLocaleDateString('es-CL')} &nbsp;|&nbsp;
+  <b>Superficie:</b> ${fmt(Math.round(r.areaHa))} ha (${fmt(Math.round(r.areaKm2*10)/10)} km²)
+</div>
+<h2>Resumen Ejecutivo</h2>
+<div class="vbox">
+  <div class="main">$ ${fmt(Math.round(cv))} USD/año</div>
+  <div style="font-size:14px;margin-top:4px">Valor total del área analizada — Año ${cmpYear}</div>
+  <div style="font-size:13px;margin-top:8px;line-height:1.8">
+    CLP: <b>$${fmt(Math.round(cv*USD_CLP/1e6))} millones/año</b><br>
+    Por hectárea: <b>$${fmt(Math.round(cv/Math.max(r.areaHa,1)))} USD/ha·año</b><br>
+    Línea base ${baseYear} → ${cmpYear}:
+    <span class="${pos?'pos':'neg'}">${pos?'+':''}${chg.toFixed(2)}% ($${fmt(Math.round(cv-bv))} USD)</span>
+  </div>
+</div>
+<h2>Servicios Ecosistémicos</h2>
+<table><tr><th>Servicio</th><th>USD/año</th><th>%</th><th>USD/ha·año</th></tr>
+${svcRows}
+<tr style="font-weight:700;background:#f0fdf4"><td>TOTAL</td><td>$${fmt(Math.round(r.totalUSD))}</td><td>100%</td><td>$${fmt(Math.round(r.totalUSD/Math.max(r.areaHa,1)))}</td></tr></table>
+<h2>Composición Ecosistémica</h2>
+<table><tr><th>Ecosistema</th><th>Área (ha)</th><th>% Área</th><th>USD/ha·año</th><th>Aporte USD/año</th></tr>
+${ecoRows}</table>
+<h2>Serie Histórica ${baseYear}–${cmpYear}</h2>
+<table><tr><th>Año</th><th>USD/año</th><th>CLP millones</th><th>Δ vs ${baseYear}</th></tr>
+${histRows}</table>
+<div class="foot">
+  SIXCREP — Sistema de Valorización Ecosistémica · SEEA Ecosystem Accounting (ONU 2021)<br>
+  Datos: CONAF, MMA Chile, GBIF, OpenStreetMap · Valores USD 2020 constante<br>
+  Informe de carácter indicativo. No reemplaza estudios de terreno certificados.
+</div>
+<div class="noprint" style="text-align:center;margin-top:20px">
+  <button onclick="window.print()" style="padding:10px 24px;background:#065f46;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">Imprimir / Guardar PDF</button>
+</div>
+</body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTILIDADES
+// ═══════════════════════════════════════════════════════════════════
+function fmt(n){
+  if(isNaN(n)) return '0';
+  return Math.abs(n).toLocaleString('es-CL');
+}
+
+function dlBlob(text, mime, name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:mime}));
+  a.download=name; a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ARRANQUE
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('load', initMap);
+</script>
 </body>
 </html>
