@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sixcrep · Mapa Satelital II Región</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; }
+
+    /* ── Layout ── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+    #sidebar {
+      width: 380px; min-width: 320px; background: #161b22;
+      display: flex; flex-direction: column; border-right: 1px solid #30363d;
+      overflow: hidden; z-index: 10;
+    }
+    #map-container { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* ── Header ── */
+    #sidebar-header {
+      padding: 16px 20px 12px;
+      background: linear-gradient(135deg,#1a3a5c,#0d2137);
+      border-bottom: 1px solid #30363d;
+    }
+    #sidebar-header h1 { font-size: 18px; font-weight: 700; color: #58a6ff; letter-spacing: .5px; }
+    #sidebar-header p  { font-size: 11px; color: #8b949e; margin-top: 2px; }
+
+    /* ── Search ── */
+    #search-section { padding: 16px; border-bottom: 1px solid #30363d; }
+    #search-section label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .8px; display: block; margin-bottom: 6px; }
+    #search-wrapper { position: relative; }
+    #address-input {
+      width: 100%; padding: 10px 40px 10px 12px;
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 8px; color: #e6edf3; font-size: 13px;
+      outline: none; transition: border-color .2s;
+    }
+    #address-input:focus { border-color: #58a6ff; }
+    #search-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: #1f6feb; border: none; border-radius: 5px;
+      color: #fff; padding: 4px 8px; cursor: pointer; font-size: 13px;
+    }
+    #search-btn:hover { background: #388bfd; }
+    #suggestions {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: #161b22; border: 1px solid #30363d;
+      border-top: none; border-radius: 0 0 8px 8px;
+      max-height: 200px; overflow-y: auto; z-index: 1000;
+      display: none;
+    }
+    .suggestion-item {
+      padding: 9px 12px; font-size: 12px; cursor: pointer;
+      border-bottom: 1px solid #21262d;
+    }
+    .suggestion-item:hover { background: #1c2128; color: #58a6ff; }
+
+    /* ── Communes list ── */
+    #communes-section { padding: 12px 16px; border-bottom: 1px solid #30363d; }
+    #communes-section label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .8px; display: block; margin-bottom: 8px; }
+    #communes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .commune-btn {
+      background: #0d1117; border: 1px solid #30363d;
+      color: #c9d1d9; padding: 6px 8px; font-size: 11px;
+      border-radius: 6px; cursor: pointer; text-align: left;
+      transition: all .2s;
+    }
+    .commune-btn:hover { border-color: #58a6ff; color: #58a6ff; background: #0d2137; }
+    .commune-btn.active { border-color: #1f6feb; background: #1a3a5c; color: #58a6ff; }
+
+    /* ── Info panel ── */
+    #info-panel { flex: 1; overflow-y: auto; padding: 0; }
+    #info-placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: #484f58;
+      text-align: center; padding: 20px;
+    }
+    #info-placeholder .icon { font-size: 40px; margin-bottom: 10px; }
+    #info-placeholder p { font-size: 13px; line-height: 1.6; }
+
+    /* ── Report ── */
+    #report { display: none; padding: 16px; }
+    .report-header {
+      background: linear-gradient(135deg,#1a3a5c,#0d2137);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+    }
+    .report-header h2 { font-size: 15px; font-weight: 700; color: #58a6ff; }
+    .report-header .coords { font-size: 11px; color: #8b949e; margin-top: 3px; }
+    .report-header .generated { font-size: 10px; color: #484f58; margin-top: 2px; }
+
+    .report-section { margin-bottom: 12px; }
+    .report-section h3 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .8px; color: #8b949e; margin-bottom: 8px;
+      padding-bottom: 4px; border-bottom: 1px solid #21262d;
+    }
+    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .data-card {
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 8px; padding: 10px;
+    }
+    .data-card .label { font-size: 10px; color: #8b949e; margin-bottom: 3px; }
+    .data-card .value { font-size: 13px; font-weight: 600; color: #e6edf3; }
+    .data-card .value.good  { color: #3fb950; }
+    .data-card .value.warn  { color: #d29922; }
+    .data-card .value.bad   { color: #f85149; }
+    .data-card .value.blue  { color: #58a6ff; }
+
+    .data-card.full { grid-column: 1 / -1; }
+
+    .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 20px;
+      border: 1px solid #30363d; color: #8b949e;
+    }
+    .tag.green  { border-color: #238636; color: #3fb950; background: #0f2d12; }
+    .tag.yellow { border-color: #9e6a03; color: #d29922; background: #1f1a00; }
+    .tag.blue   { border-color: #1f6feb; color: #58a6ff; background: #031d2e; }
+
+    .weather-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .weather-row:last-child { border-bottom: none; }
+    .weather-icon { font-size: 22px; width: 30px; text-align: center; }
+    .weather-info { flex: 1; }
+    .weather-info .name { font-size: 12px; color: #e6edf3; }
+    .weather-info .desc { font-size: 11px; color: #8b949e; }
+    .weather-val { font-size: 14px; font-weight: 700; color: #58a6ff; }
+
+    /* loading spinner */
+    #loading {
+      display: none; position: absolute; inset: 0;
+      background: rgba(13,17,23,.7); z-index: 50;
+      align-items: center; justify-content: center; flex-direction: column;
+      gap: 12px;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid #30363d;
+      border-top-color: #58a6ff; border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 13px; color: #8b949e; }
+
+    /* print btn */
+    #print-btn {
+      width: 100%; padding: 10px; margin-top: 8px;
+      background: #238636; border: none; border-radius: 8px;
+      color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background .2s;
+    }
+    #print-btn:hover { background: #2ea043; }
+
+    /* map overlays */
+    #map-badge {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(13,17,23,.85); border: 1px solid #30363d;
+      border-radius: 20px; padding: 5px 14px;
+      font-size: 12px; color: #58a6ff; z-index: 400;
+      pointer-events: none; white-space: nowrap;
+    }
+    #zoom-info {
+      position: absolute; bottom: 24px; right: 12px;
+      background: rgba(13,17,23,.8); border: 1px solid #30363d;
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 11px; color: #8b949e; z-index: 400;
+    }
+
+    /* scrollbar */
+    #info-panel::-webkit-scrollbar { width: 5px; }
+    #info-panel::-webkit-scrollbar-track { background: #0d1117; }
+    #info-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+    @media (max-width: 700px) {
+      #app { flex-direction: column; }
+      #sidebar { width: 100%; min-width: unset; height: 55vh; border-right: none; border-bottom: 1px solid #30363d; }
+      #map-container { height: 45vh; }
+    }
+
+    @media print {
+      #sidebar-header, #search-section, #communes-section, #print-btn { display: none; }
+      #app { display: block; }
+      #sidebar { width: 100%; height: auto; border: none; overflow: visible; }
+      #map-container { display: none; }
+      #report { display: block !important; }
+      body { background: #fff; color: #000; }
+      .data-card { border: 1px solid #ccc; background: #f9f9f9; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>&#127979; Sixcrep · II Región</h1>
+      <p>Sistema de Informe por Dirección · Antofagasta</p>
+    </div>
+
+    <div id="search-section">
+      <label>Buscar dirección</label>
+      <div id="search-wrapper">
+        <input id="address-input" type="text"
+          placeholder="Ej: Av. Balmaceda 2345, Antofagasta"
+          autocomplete="off" />
+        <button id="search-btn" title="Buscar">&#128269;</button>
+        <div id="suggestions"></div>
+      </div>
+    </div>
+
+    <div id="communes-section">
+      <label>Comunas II Región</label>
+      <div id="communes-grid"></div>
+    </div>
+
+    <div id="info-panel">
+      <div id="info-placeholder">
+        <div class="icon">&#127760;</div>
+        <p>Escribe una dirección o haz clic<br>en cualquier punto del mapa<br>para generar el informe.</p>
+      </div>
+      <div id="report"></div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map-container">
+    <div id="map-badge">II Región de Antofagasta · Chile</div>
+    <div id="map"></div>
+    <div id="zoom-info">Zoom: <span id="zoom-val">9</span></div>
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Generando informe…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const REGION_CENTER = [-23.65, -68.5];
+const REGION_BOUNDS = [[-26.8, -70.8], [-18.0, -67.0]];
+
+const COMMUNES = [
+  { name: "Antofagasta",   lat: -23.6509, lon: -70.3975 },
+  { name: "Mejillones",    lat: -23.1020, lon: -70.4497 },
+  { name: "Sierra Gorda",  lat: -22.8993, lon: -68.5784 },
+  { name: "Taltal",        lat: -25.4049, lon: -70.4817 },
+  { name: "Calama",        lat: -22.4667, lon: -68.9333 },
+  { name: "Ollagüe",       lat: -21.2180, lon: -68.2529 },
+  { name: "San Pedro de Atacama", lat: -22.9087, lon: -68.1997 },
+  { name: "Tocopilla",     lat: -22.0930, lon: -70.1980 },
+  { name: "María Elena",   lat: -22.3499, lon: -69.6633 },
+];
+
+// ── Map init ───────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: REGION_CENTER,
+  zoom: 7,
+  zoomControl: true,
+  maxBounds: [[-28, -72], [-16, -65]],
+});
+
+// Satellite tile layer (ESRI World Imagery)
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Tiles © Esri — Source: Esri, USGS, NOAA', maxZoom: 19, }
+).addTo(map);
+
+// Labels overlay
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  { attribution: '', maxZoom: 19, opacity: 0.8 }
+).addTo(map);
+
+// Zoom display
+map.on('zoomend', () => {
+  document.getElementById('zoom-val').textContent = map.getZoom();
+});
+document.getElementById('zoom-val').textContent = map.getZoom();
+
+// ── Communes buttons ───────────────────────────────────────────────────────
+const communeMarkers = {};
+const grid = document.getElementById('communes-grid');
+COMMUNES.forEach(c => {
+  const btn = document.createElement('button');
+  btn.className = 'commune-btn';
+  btn.textContent = c.name;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.commune-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    map.flyTo([c.lat, c.lon], 12, { duration: 1.5 });
+    generateReport(c.lat, c.lon, c.name + ', II Región, Chile');
+  });
+  grid.appendChild(btn);
+
+  // Small marker on map
+  const m = L.circleMarker([c.lat, c.lon], {
+    radius: 6, fillColor: '#58a6ff', color: '#fff',
+    weight: 1.5, fillOpacity: 0.9
+  }).addTo(map).bindTooltip(c.name, { permanent: false, className: 'leaflet-tooltip' });
+  m.on('click', () => {
+    btn.click();
+  });
+  communeMarkers[c.name] = m;
+});
+
+// ── Map click → report ─────────────────────────────────────────────────────
+let clickMarker = null;
+map.on('click', async e => {
+  const { lat, lng } = e.latlng;
+  if (clickMarker) map.removeLayer(clickMarker);
+  clickMarker = L.marker([lat, lng], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="width:14px;height:14px;background:#f85149;border:2px solid #fff;border-radius:50%;"></div>',
+      iconAnchor: [7, 7]
+    })
+  }).addTo(map);
+
+  document.querySelectorAll('.commune-btn').forEach(b => b.classList.remove('active'));
+  const addr = await reverseGeocode(lat, lng);
+  generateReport(lat, lng, addr);
+});
+
+// ── Address search ─────────────────────────────────────────────────────────
+const input    = document.getElementById('address-input');
+const suggest  = document.getElementById('suggestions');
+const searchBtn = document.getElementById('search-btn');
+let debounce;
+
+input.addEventListener('input', () => {
+  clearTimeout(debounce);
+  const q = input.value.trim();
+  if (q.length < 3) { suggest.style.display = 'none'; return; }
+  debounce = setTimeout(() => fetchSuggestions(q), 350);
+});
+
+async function fetchSuggestions(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ' Antofagasta Chile')}&format=json&limit=6&countrycodes=cl&viewbox=-70.9,-26.9,-67.0,-18.0&bounded=1`;
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+    const data = await res.json();
+    renderSuggestions(data);
+  } catch { suggest.style.display = 'none'; }
+}
+
+function renderSuggestions(items) {
+  suggest.innerHTML = '';
+  if (!items.length) { suggest.style.display = 'none'; return; }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'suggestion-item';
+    div.textContent = item.display_name;
+    div.addEventListener('click', () => {
+      input.value = item.display_name;
+      suggest.style.display = 'none';
+      const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+      map.flyTo([lat, lon], 15, { duration: 1.5 });
+      if (clickMarker) map.removeLayer(clickMarker);
+      clickMarker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:14px;height:14px;background:#f85149;border:2px solid #fff;border-radius:50%;"></div>',
+          iconAnchor: [7, 7]
+        })
+      }).addTo(map);
+      generateReport(lat, lon, item.display_name);
+    });
+    suggest.appendChild(div);
+  });
+  suggest.style.display = 'block';
+}
+
+searchBtn.addEventListener('click', () => {
+  const q = input.value.trim();
+  if (q) fetchSuggestions(q);
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { suggest.style.display = 'none'; fetchSuggestions(input.value.trim()); }
+  if (e.key === 'Escape') suggest.style.display = 'none';
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-wrapper')) suggest.style.display = 'none';
+});
+
+// ── Geocoding helpers ──────────────────────────────────────────────────────
+async function reverseGeocode(lat, lon) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    return data.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  }
+}
+
+// ── Weather (Open-Meteo, free & no key) ───────────────────────────────────
+async function fetchWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,uv_index&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=America%2FSantiago&forecast_days=3`;
+  const res  = await fetch(url);
+  return res.json();
+}
+
+// ── Elevation (Open-Meteo elevation API) ──────────────────────────────────
+async function fetchElevation(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
+  const res  = await fetch(url);
+  const data = await res.json();
+  return data.elevation ? data.elevation[0] : null;
+}
+
+// ── Air quality (Open-Meteo AQI) ──────────────────────────────────────────
+async function fetchAirQuality(lat, lon) {
+  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,uv_index&timezone=America%2FSantiago`;
+  const res  = await fetch(url);
+  return res.json();
+}
+
+// ── Weather code → description ─────────────────────────────────────────────
+function wmoDesc(code) {
+  const map = {
+    0:'Despejado', 1:'Mayormente despejado', 2:'Parcialmente nublado', 3:'Nublado',
+    45:'Niebla', 48:'Niebla con escarcha',
+    51:'Llovizna ligera', 53:'Llovizna moderada', 55:'Llovizna intensa',
+    61:'Lluvia ligera', 63:'Lluvia moderada', 65:'Lluvia intensa',
+    71:'Nevada ligera', 73:'Nevada moderada', 75:'Nevada intensa',
+    80:'Chubascos ligeros', 81:'Chubascos moderados', 82:'Chubascos intensos',
+    95:'Tormenta', 96:'Tormenta con granizo',
+  };
+  return map[code] ?? 'Desconocido';
+}
+
+function wmoIcon(code) {
+  if (code === 0) return '☀️';
+  if (code <= 2)  return '⛅';
+  if (code <= 3)  return '☁️';
+  if (code <= 48) return '🌫️';
+  if (code <= 55) return '🌦️';
+  if (code <= 65) return '🌧️';
+  if (code <= 75) return '❄️';
+  if (code <= 82) return '🌧️';
+  return '⛈️';
+}
+
+// ── AQI label ─────────────────────────────────────────────────────────────
+function aqiLabel(pm25) {
+  if (pm25 === null) return { text: 'N/D', cls: '' };
+  if (pm25 < 12)   return { text: 'Buena', cls: 'good' };
+  if (pm25 < 35.4) return { text: 'Moderada', cls: 'warn' };
+  if (pm25 < 55.4) return { text: 'Dañina grupos sensibles', cls: 'warn' };
+  return { text: 'Dañina', cls: 'bad' };
+}
+
+// ── UV label ──────────────────────────────────────────────────────────────
+function uvLabel(uv) {
+  if (uv === null) return { text: 'N/D', cls: '' };
+  if (uv < 3)  return { text: `${uv} Bajo`, cls: 'good' };
+  if (uv < 6)  return { text: `${uv} Moderado`, cls: 'warn' };
+  if (uv < 8)  return { text: `${uv} Alto`, cls: 'warn' };
+  if (uv < 11) return { text: `${uv} Muy Alto`, cls: 'bad' };
+  return { text: `${uv} Extremo`, cls: 'bad' };
+}
+
+// ── Commune detection ──────────────────────────────────────────────────────
+function nearestCommune(lat, lon) {
+  let best = null, dist = Infinity;
+  COMMUNES.forEach(c => {
+    const d = Math.hypot(lat - c.lat, lon - c.lon);
+    if (d < dist) { dist = d; best = c; }
+  });
+  return best;
+}
+
+// ── Real data per commune (INE / MINVU / public) ──────────────────────────
+const COMMUNE_DATA = {
+  "Antofagasta":   { pop: 431762, area: 30718, density: 14.1, region: "II Región", provincia: "Antofagasta", growth: "+1.8%", industries: ["Minería","Puerto","Comercio","Educación"], riskLevel: "Bajo", seismicZone: "Zona 3", floodRisk: "Muy Bajo", altRange: "0–1200 m" },
+  "Mejillones":    { pop: 14500,  area: 3452,  density: 4.2,  region: "II Región", provincia: "Antofagasta", growth: "+2.1%", industries: ["Puerto","Termoeléctrica","Minería"], riskLevel: "Bajo", seismicZone: "Zona 3", floodRisk: "Bajo", altRange: "0–600 m" },
+  "Sierra Gorda":  { pop: 3900,   area: 28500, density: 0.1,  region: "II Región", provincia: "Antofagasta", growth: "+0.5%", industries: ["Minería cobre"], riskLevel: "Bajo", seismicZone: "Zona 2", floodRisk: "Bajo", altRange: "1200–2400 m" },
+  "Taltal":        { pop: 12500,  area: 20544, density: 0.6,  region: "II Región", provincia: "Antofagasta", growth: "+0.3%", industries: ["Pesca","Minería","Turismo"], riskLevel: "Bajo", seismicZone: "Zona 3", floodRisk: "Bajo", altRange: "0–1400 m" },
+  "Calama":        { pop: 188931, area: 15597, density: 12.1, region: "II Región", provincia: "El Loa",      growth: "+2.3%", industries: ["Minería cobre","Comercio","Servicios"], riskLevel: "Bajo", seismicZone: "Zona 2", floodRisk: "Bajo", altRange: "2200–2600 m" },
+  "Ollagüe":       { pop: 320,    area: 6685,  density: 0.05, region: "II Región", provincia: "El Loa",      growth: "-1.2%", industries: ["Minería","Frontera"], riskLevel: "Bajo", seismicZone: "Zona 1", floodRisk: "Muy Bajo", altRange: "3600–4000 m" },
+  "San Pedro de Atacama": { pop: 11400, area: 23439, density: 0.5, region: "II Región", provincia: "El Loa", growth: "+4.1%", industries: ["Turismo","Minería litio","Agricultura"], riskLevel: "Bajo", seismicZone: "Zona 2", floodRisk: "Bajo", altRange: "2400–5000 m" },
+  "Tocopilla":     { pop: 25300,  area: 4193,  density: 6.0,  region: "II Región", provincia: "Tocopilla",   growth: "+0.8%", industries: ["Pesca","Termoeléctrica","Minería"], riskLevel: "Bajo", seismicZone: "Zona 3", floodRisk: "Bajo", altRange: "0–800 m" },
+  "María Elena":   { pop: 8200,   area: 7989,  density: 1.0,  region: "II Región", provincia: "Tocopilla",   growth: "-0.5%", industries: ["Salitre","Minería"], riskLevel: "Bajo", seismicZone: "Zona 2", floodRisk: "Muy Bajo", altRange: "900–1200 m" },
+};
+
+// ── Generate report ────────────────────────────────────────────────────────
+async function generateReport(lat, lon, address) {
+  showLoading(true);
+  document.getElementById('info-placeholder').style.display = 'none';
+  document.getElementById('report').style.display = 'none';
+
+  try {
+    const [weatherData, elevation, aqData] = await Promise.allSettled([
+      fetchWeather(lat, lon),
+      fetchElevation(lat, lon),
+      fetchAirQuality(lat, lon),
+    ]);
+
+    const wx  = weatherData.status === 'fulfilled' ? weatherData.value : null;
+    const elev = elevation.status === 'fulfilled' ? elevation.value : null;
+    const aq  = aqData.status === 'fulfilled' ? aqData.value : null;
+
+    const commune = nearestCommune(lat, lon);
+    const cData   = COMMUNE_DATA[commune.name] ?? {};
+
+    const cur   = wx?.current ?? {};
+    const daily = wx?.daily   ?? {};
+    const airCur = aq?.current ?? {};
+
+    const pm25 = airCur.pm2_5 ?? null;
+    const pm10 = airCur.pm10 ?? null;
+    const uv   = cur.uv_index ?? null;
+    const aqInfo = aqiLabel(pm25);
+    const uvInfo = uvLabel(uv);
+
+    const now = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+
+    document.getElementById('report').innerHTML = `
+      <div class="report-header">
+        <h2>&#128205; ${address.split(',').slice(0,3).join(',')}</h2>
+        <div class="coords">&#127759; ${lat.toFixed(5)}°, ${lon.toFixed(5)}° · ${elev !== null ? elev.toFixed(0)+' m.s.n.m.' : 'Altitud N/D'}</div>
+        <div class="generated">Generado: ${now}</div>
+      </div>
+
+      <!-- Ubicación -->
+      <div class="report-section">
+        <h3>&#127979; Ubicación Administrativa</h3>
+        <div class="data-grid">
+          <div class="data-card"><div class="label">Comuna</div><div class="value blue">${commune.name}</div></div>
+          <div class="data-card"><div class="label">Provincia</div><div class="value">${cData.provincia ?? '—'}</div></div>
+          <div class="data-card"><div class="label">Región</div><div class="value">${cData.region ?? 'II Región'}</div></div>
+          <div class="data-card"><div class="label">Superficie</div><div class="value">${cData.area ? cData.area.toLocaleString('es-CL')+' km²' : '—'}</div></div>
+          <div class="data-card"><div class="label">Altitud</div><div class="value">${elev !== null ? elev.toFixed(0)+' m' : '—'}</div></div>
+          <div class="data-card"><div class="label">Rango altitudinal</div><div class="value">${cData.altRange ?? '—'}</div></div>
+        </div>
+      </div>
+
+      <!-- Demografía -->
+      <div class="report-section">
+        <h3>&#128101; Datos Demográficos (INE 2024)</h3>
+        <div class="data-grid">
+          <div class="data-card"><div class="label">Población</div><div class="value">${cData.pop ? cData.pop.toLocaleString('es-CL') : '—'}</div></div>
+          <div class="data-card"><div class="label">Densidad</div><div class="value">${cData.density ? cData.density+' hab/km²' : '—'}</div></div>
+          <div class="data-card"><div class="label">Crecimiento</div><div class="value ${cData.growth?.startsWith('+') ? 'good' : 'warn'}">${cData.growth ?? '—'}</div></div>
+          <div class="data-card full">
+            <div class="label">Actividades principales</div>
+            <div class="tag-list">
+              ${(cData.industries ?? []).map(i => `<span class="tag blue">${i}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clima actual -->
+      <div class="report-section">
+        <h3>&#127782; Clima Actual (Open-Meteo)</h3>
+        ${wx ? `
+        <div class="data-grid">
+          <div class="data-card"><div class="label">Temperatura</div><div class="value blue">${cur.temperature_2m ?? '—'}°C</div></div>
+          <div class="data-card"><div class="label">Humedad</div><div class="value">${cur.relative_humidity_2m ?? '—'}%</div></div>
+          <div class="data-card"><div class="label">Viento</div><div class="value">${cur.wind_speed_10m ?? '—'} km/h</div></div>
+          <div class="data-card"><div class="label">Condición</div><div class="value">${wmoIcon(cur.weather_code)} ${wmoDesc(cur.weather_code)}</div></div>
+          <div class="data-card"><div class="label">Índice UV</div><div class="value ${uvInfo.cls}">${uvInfo.text}</div></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Pronóstico 3 días</div>
+          ${(daily.time ?? []).slice(0,3).map((d,i) => `
+            <div class="weather-row">
+              <div class="weather-icon">${wmoIcon(0)}</div>
+              <div class="weather-info">
+                <div class="name">${new Date(d+'T12:00:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'short'})}</div>
+                <div class="desc">Precip: ${(daily.precipitation_sum ?? [])[i] ?? 0} mm</div>
+              </div>
+              <div class="weather-val">${(daily.temperature_2m_max??[])[i]??'—'}° / ${(daily.temperature_2m_min??[])[i]??'—'}°</div>
+            </div>
+          `).join('')}
+        </div>
+        ` : '<p style="color:#8b949e;font-size:12px;">No disponible</p>'}
+      </div>
+
+      <!-- Calidad del aire -->
+      <div class="report-section">
+        <h3>&#127808; Calidad del Aire</h3>
+        <div class="data-grid">
+          <div class="data-card"><div class="label">PM2.5</div><div class="value ${aqInfo.cls}">${pm25 !== null ? pm25.toFixed(1)+' µg/m³' : 'N/D'}</div></div>
+          <div class="data-card"><div class="label">PM10</div><div class="value">${pm10 !== null ? pm10.toFixed(1)+' µg/m³' : 'N/D'}</div></div>
+          <div class="data-card"><div class="label">NO₂</div><div class="value">${airCur.nitrogen_dioxide !== undefined ? airCur.nitrogen_dioxide.toFixed(1)+' µg/m³' : 'N/D'}</div></div>
+          <div class="data-card"><div class="label">Estado</div><div class="value ${aqInfo.cls}">${aqInfo.text}</div></div>
+        </div>
+      </div>
+
+      <!-- Riesgos -->
+      <div class="report-section">
+        <h3>&#9888;&#65039; Riesgo y Seguridad</h3>
+        <div class="data-grid">
+          <div class="data-card"><div class="label">Zona sísmica</div><div class="value warn">${cData.seismicZone ?? 'Zona 2-3'}</div></div>
+          <div class="data-card"><div class="label">Riesgo de inundación</div><div class="value good">${cData.floodRisk ?? 'Bajo'}</div></div>
+          <div class="data-card full"><div class="label">Nivel de riesgo general</div><div class="value good">&#9989; ${cData.riskLevel ?? 'Bajo'}</div></div>
+        </div>
+      </div>
+
+      <!-- Coordenadas técnicas -->
+      <div class="report-section">
+        <h3>&#128290; Datos Técnicos</h3>
+        <div class="data-grid">
+          <div class="data-card"><div class="label">Latitud</div><div class="value">${lat.toFixed(6)}°</div></div>
+          <div class="data-card"><div class="label">Longitud</div><div class="value">${lon.toFixed(6)}°</div></div>
+          <div class="data-card"><div class="label">Elevación</div><div class="value">${elev !== null ? elev.toFixed(1)+' m' : 'N/D'}</div></div>
+          <div class="data-card"><div class="label">Datum</div><div class="value">WGS84</div></div>
+        </div>
+      </div>
+
+      <button id="print-btn" onclick="window.print()">&#128438; Imprimir / Exportar PDF</button>
+    `;
+
+    document.getElementById('report').style.display = 'block';
+  } catch(e) {
+    document.getElementById('report').innerHTML = `<div style="padding:20px;color:#f85149;font-size:13px;">Error al generar informe: ${e.message}</div>`;
+    document.getElementById('report').style.display = 'block';
+  } finally {
+    showLoading(false);
+  }
+}
+
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+}
+</script>
+</body>
+</html>
